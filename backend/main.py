@@ -153,6 +153,10 @@ def find_key_by_kid(kid, jwks):
 
 @app.get("/")
 async def root():
+    """Serve SPA index.html at root."""
+    html_file = FRONTEND_DIST / "index.html"
+    if html_file.exists():
+        return FileResponse(str(html_file))
     return {"message": "Hermes Auth Demo API", "status": "running"}
 
 
@@ -238,3 +242,24 @@ async def delete_user(email: str, admin = Depends(require_admin)):
     conn.execute("DELETE FROM users WHERE email = ?", (email,))
     conn.commit()
     return {"ok": True, "deleted": email}
+
+
+# Serve frontend static files (production build)
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import pathlib
+
+FRONTEND_DIST = pathlib.Path(__file__).parent.parent / "frontend" / "dist"
+
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+    
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        """Serve the SPA for any non-API route."""
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404)
+        html_file = FRONTEND_DIST / "index.html"
+        if html_file.exists():
+            return FileResponse(str(html_file))
+        raise HTTPException(status_code=404, detail="Frontend not built")
