@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { OidcProvider, useAuth } from './OidcContext';
+import { ThemeProvider } from './ThemeContext';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import AdminUsersPage from './pages/AdminUsersPage';
@@ -102,7 +103,9 @@ function AppContent() {
 export default function App() {
   return (
     <OidcProvider config={KEYCLOAK_CONFIG}>
-      <AppContent />
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </OidcProvider>
   );
 }
