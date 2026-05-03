@@ -4,6 +4,7 @@ import { UserManager, WebStorageStateStore } from 'oidc-client-ts';
 const AuthContext = createContext(null);
 
 export function OidcProvider({ children, config }) {
+  const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [userManager, setUserManager] = useState(null);
@@ -19,36 +20,32 @@ export function OidcProvider({ children, config }) {
       scope: config.scope,
       userStore: store,
       automaticSilentRenew: true,
+      disablePKCE: false,
     };
 
     const mgr = new UserManager(settings);
-
-    // Handle sign-in redirect callback
-    mgr.signinRedirectCallback().then((user) => {
-      setUser(user);
-      setIsAuthenticated(true);
-      window.location.href = '/';
-    }).catch(() => {});
-
-    // Handle sign-out redirect callback — clear local state
-    mgr.signoutRedirectCallback().then(() => {
-      setUser(null);
-      setIsAuthenticated(false);
-      window.location.href = '/';
-    }).catch(() => {});
 
     mgr.getUser().then((user) => {
       if (user) {
         setUser(user);
         setIsAuthenticated(true);
       }
-    });
+    }).finally(() => setIsLoading(false));
 
     setUserManager(mgr);
-  }, []);
+  }, [config]);
 
   const login = useCallback(async () => {
     if (userManager) await userManager.signinRedirect();
+  }, [userManager]);
+
+  const handleSigninCallback = useCallback(async () => {
+    if (!userManager) return;
+
+    const signedInUser = await userManager.signinRedirectCallback();
+    setUser(signedInUser);
+    setIsAuthenticated(true);
+    window.location.href = '/';
   }, [userManager]);
 
   const logout = useCallback(async () => {
@@ -61,7 +58,7 @@ export function OidcProvider({ children, config }) {
   }, [userManager, user]);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+    <AuthContext.Provider value={{ isLoading, isAuthenticated, user, login, logout, handleSigninCallback }}>
       {children}
     </AuthContext.Provider>
   );

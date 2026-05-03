@@ -3,8 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { OidcProvider, useAuth } from './OidcContext';
 import { ThemeProvider } from './ThemeContext';
 import Layout from './components/Layout';
+import RequireAuth from './components/RequireAuth';
 import HomePage from './pages/HomePage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import CallbackPage from './pages/CallbackPage';
+import LoginPage from './pages/LoginPage';
 
 const KEYCLOAK_CONFIG = {
   authority: 'https://keycloak.netcraft.fr/realms/hermes',
@@ -58,34 +61,12 @@ function AppContent() {
     return children;
   }
 
-  // Redirect unauthenticated users to login via UserManager (handles PKCE state)
-  function RequireAuth({ children }) {
-    if (!isAuthenticated) {
-      return <Navigate to="/login" replace />;
-    }
-    
-    return children;
-  }
-
-  // Login handler — delegates to UserManager for proper OIDC flow
-  function LoginPage() {
-    const { login, isAuthenticated } = useAuth();
-    
-    useEffect(() => {
-      if (!isAuthenticated) {
-        login();
-      }
-    }, [login, isAuthenticated]);
-    
-    return <div className="flex items-center justify-center h-64">Redirecting to login...</div>;
-  }
-
   return (
     <BrowserRouter>
       <Layout>
         <Routes>
           {/* Callback route — processes OIDC response */}
-          <Route path="/callback" element={<div className="flex items-center justify-center h-64">Processing login...</div>} />
+          <Route path="/callback" element={<CallbackPage />} />
           
           {/* Login trigger */}
           <Route path="/login" element={<LoginPage />} />
