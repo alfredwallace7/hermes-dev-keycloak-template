@@ -58,26 +58,38 @@ function AppContent() {
     return children;
   }
 
-  // Redirect unauthenticated users to login
+  // Redirect unauthenticated users to login via UserManager (handles PKCE state)
   function RequireAuth({ children }) {
     if (!isAuthenticated) {
-      window.location.href = KEYCLOAK_CONFIG.authority + '/protocol/openid-connect/auth?' + 
-        new URLSearchParams({
-          client_id: KEYCLOAK_CONFIG.client_id,
-          redirect_uri: KEYCLOAK_CONFIG.redirect_uri,
-          response_type: 'code',
-          scope: KEYCLOAK_CONFIG.scope,
-        });
-      return null;
+      return <Navigate to="/login" replace />;
     }
     
     return children;
+  }
+
+  // Login handler — delegates to UserManager for proper OIDC flow
+  function LoginPage() {
+    const { login, isAuthenticated } = useAuth();
+    
+    useEffect(() => {
+      if (!isAuthenticated) {
+        login();
+      }
+    }, [login, isAuthenticated]);
+    
+    return <div className="flex items-center justify-center h-64">Redirecting to login...</div>;
   }
 
   return (
     <BrowserRouter>
       <Layout>
         <Routes>
+          {/* Callback route — processes OIDC response */}
+          <Route path="/callback" element={<div className="flex items-center justify-center h-64">Processing login...</div>} />
+          
+          {/* Login trigger */}
+          <Route path="/login" element={<LoginPage />} />
+          
           {/* Public routes */}
           <Route path="/" element={
             <RequireAuth>

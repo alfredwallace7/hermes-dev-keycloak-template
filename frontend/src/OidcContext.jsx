@@ -27,14 +27,14 @@ export function OidcProvider({ children, config }) {
     mgr.signinRedirectCallback().then((user) => {
       setUser(user);
       setIsAuthenticated(true);
-      window.history.replaceState({}, '', '/');
+      window.location.href = '/';
     }).catch(() => {});
 
     // Handle sign-out redirect callback — clear local state
     mgr.signoutRedirectCallback().then(() => {
       setUser(null);
       setIsAuthenticated(false);
-      window.history.replaceState({}, '', '/');
+      window.location.href = '/';
     }).catch(() => {});
 
     mgr.getUser().then((user) => {
