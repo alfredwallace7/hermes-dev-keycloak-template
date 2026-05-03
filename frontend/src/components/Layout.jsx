@@ -41,42 +41,62 @@ export default function Layout({ children }) {
 
           {/* Right side - user menu */}
           {isAuthenticated ? (
-            <DropdownMenu open={userMenuOpen} onOpenChange={setUserMenuOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={getAvatarUrl()} alt={userName} />
-                    <AvatarFallback>{getInitials(userName)}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col space-y-1">
-                    <p className="truncate text-sm font-medium leading-none">{userName}</p>
-                    {userEmail ? (
-                      <p className="truncate text-xs leading-none text-muted-foreground">
-                        {userEmail}
-                      </p>
-                    ) : null}
+            <div className="relative">
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="rounded-full hover:bg-accent p-1 transition-colors"
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={getAvatarUrl()} alt={userName} />
+                  <AvatarFallback>{getInitials(userName)}</AvatarFallback>
+                </Avatar>
+              </button>
+
+              {userMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setUserMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-56 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md z-50 animate-in fade-in-0 zoom-in-95">
+                    <div className="px-1.5 py-1">
+                      <p className="truncate text-sm font-medium leading-none">{userName}</p>
+                      {userEmail && (
+                        <p className="truncate text-xs leading-none text-muted-foreground">
+                          {userEmail}
+                        </p>
+                      )}
+                    </div>
+                    <div className="-mx-1 my-1 h-px bg-border" />
+                    <button
+                      onClick={() => { setTheme('light'); setUserMenuOpen(false); }}
+                      className={`w-full text-left px-1.5 py-1 text-sm rounded-md hover:bg-accent ${theme === 'light' ? 'bg-accent' : ''}`}
+                    >
+                      Light
+                    </button>
+                    <button
+                      onClick={() => { setTheme('dark'); setUserMenuOpen(false); }}
+                      className={`w-full text-left px-1.5 py-1 text-sm rounded-md hover:bg-accent ${theme === 'dark' ? 'bg-accent' : ''}`}
+                    >
+                      Dark
+                    </button>
+                    <button
+                      onClick={() => { setTheme('system'); setUserMenuOpen(false); }}
+                      className={`w-full text-left px-1.5 py-1 text-sm rounded-md hover:bg-accent ${theme === 'system' ? 'bg-accent' : ''}`}
+                    >
+                      System
+                    </button>
+                    <div className="-mx-1 my-1 h-px bg-border" />
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-1.5 py-1 text-sm rounded-md hover:bg-accent"
+                    >
+                      Logout
+                    </button>
                   </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setTheme('light')} className={theme === 'light' ? 'bg-accent' : ''}>
-                  Light
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('dark')} className={theme === 'dark' ? 'bg-accent' : ''}>
-                  Dark
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTheme('system')} className={theme === 'system' ? 'bg-accent' : ''}>
-                  System
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={handleLogout}>
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </>
+              )}
+            </div>
           ) : (
             <Button size="sm" onClick={() => window.location.reload()}>
               Refresh
