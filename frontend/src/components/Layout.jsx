@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../OidcContext';
 import { useTheme } from '../ThemeContext';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 export default function Layout({ children }) {
   const { isAuthenticated, user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userName = user?.profile?.name || user?.profile?.email || 'User';
+  const userEmail = user?.profile?.email;
   
   // Get initials for avatar fallback
   const getInitials = (name) => {
@@ -19,6 +22,11 @@ export default function Layout({ children }) {
   const getAvatarUrl = () => {
     // Keycloak provides 'picture' claim in userinfo endpoint
     return user?.profile?.picture || null;
+  };
+
+  const handleLogout = () => {
+    setUserMenuOpen(false);
+    logout();
   };
 
   return (
@@ -33,22 +41,24 @@ export default function Layout({ children }) {
 
           {/* Right side - user menu */}
           {isAuthenticated ? (
-            <DropdownMenu>
+            <DropdownMenu open={userMenuOpen} onOpenChange={setUserMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={getAvatarUrl()} alt={user?.profile?.name || 'User'} />
-                    <AvatarFallback>{getInitials(user?.profile?.name)}</AvatarFallback>
+                    <AvatarImage src={getAvatarUrl()} alt={userName} />
+                    <AvatarFallback>{getInitials(userName)}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user?.profile?.name || 'User'}</p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user?.profile?.email}
-                    </p>
+                    <p className="truncate text-sm font-medium leading-none">{userName}</p>
+                    {userEmail ? (
+                      <p className="truncate text-xs leading-none text-muted-foreground">
+                        {userEmail}
+                      </p>
+                    ) : null}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -62,8 +72,8 @@ export default function Layout({ children }) {
                   System
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout}>
-                  Log out
+                <DropdownMenuItem onSelect={handleLogout}>
+                  Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
