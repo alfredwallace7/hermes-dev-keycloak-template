@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../OidcContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,31 +7,61 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function AdminUsersPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [adminUsers, setAdminUsers] = useState([]);
   const [newUser, setNewUser] = useState({ email: '', name: '', active: true, admin: false });
   const [loading, setLoading] = useState(false);
+  const [fetchingUsers, setFetchingUsers] = useState(false);
+  const [message, setMessage] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
     loadAdminUsers();
   }, []);
 
+  async function getErrorMessage(res, fallback) {
+    try {
+      const err = await res.json();
+      return err.detail || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
   async function loadAdminUsers() {
+    setFetchingUsers(true);
     try {
       const res = await fetch('/api/admin/users', {
         headers: { 'Authorization': `Bearer ${user?.access_token}` },
       });
-      if (res.ok) setAdminUsers(await res.json());
+      if (res.ok) {
+        setAdminUsers(await res.json());
+      } else {
+        setMessage({
+          type: 'error',
+          title: 'Failed to load users',
+          description: await getErrorMessage(res, 'Could not fetch managed users.'),
+        });
+      }
     } catch (e) {
       console.error('Failed to load users:', e);
+      setMessage({
+        type: 'error',
+        title: 'Failed to load users',
+        description: e.message || 'Could not fetch managed users.',
+      });
+    } finally {
+      setFetchingUsers(false);
     }
   }
 
   async function addUser() {
     setLoading(true);
+    setMessage(null);
     try {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
@@ -43,12 +74,24 @@ export default function AdminUsersPage() {
       if (res.ok) {
         setNewUser({ email: '', name: '', active: true, admin: false });
         await loadAdminUsers();
+        setMessage({
+          type: 'success',
+          title: 'User added',
+          description: `${newUser.email} was added successfully.`,
+        });
       } else {
-        const err = await res.json();
-        alert(err.detail || 'Failed to add user');
+        setMessage({
+          type: 'error',
+          title: 'Failed to add user',
+          description: await getErrorMessage(res, 'Could not add the user.'),
+        });
       }
     } catch (e) {
-      alert(e.message);
+      setMessage({
+        type: 'error',
+        title: 'Failed to add user',
+        description: e.message || 'Could not add the user.',
+      });
     } finally {
       setLoading(false);
     }
@@ -57,8 +100,9 @@ export default function AdminUsersPage() {
   async function toggleUserField(email, field) {
     const current = adminUsers.find(u => u.email === email);
     if (!current) return;
+    setMessage(null);
     try {
-      await fetch(`/api/admin/users/${encodeURIComponent(email)}`, {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(email)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -66,22 +110,57 @@ export default function AdminUsersPage() {
         },
         body: JSON.stringify({ [field]: !current[field] }),
       });
-      await loadAdminUsers();
+      if (res.ok) {
+        await loadAdminUsers();
+        setMessage({
+          type: 'success',
+          title: 'User updated',
+          description: `${email} was updated successfully.`,
+        });
+      } else {
+        setMessage({
+          type: 'error',
+          title: 'Failed to update user',
+          description: await getErrorMessage(res, 'Could not update the user.'),
+        });
+      }
     } catch (e) {
-      alert(e.message);
+      setMessage({
+        type: 'error',
+        title: 'Failed to update user',
+        description: e.message || 'Could not update the user.',
+      });
     }
   }
 
   async function confirmDelete() {
     if (!deleteTarget) return;
+    setMessage(null);
     try {
-      await fetch(`/api/admin/users/${encodeURIComponent(deleteTarget)}`, {
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(deleteTarget)}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${user?.access_token}` },
       });
-      await loadAdminUsers();
+      if (res.ok) {
+        await loadAdminUsers();
+        setMessage({
+          type: 'success',
+          title: 'User deleted',
+          description: `${deleteTarget} was deleted successfully.`,
+        });
+      } else {
+        setMessage({
+          type: 'error',
+          title: 'Failed to delete user',
+          description: await getErrorMessage(res, 'Could not delete the user.'),
+        });
+      }
     } catch (e) {
-      alert(e.message);
+      setMessage({
+        type: 'error',
+        title: 'Failed to delete user',
+        description: e.message || 'Could not delete the user.',
+      });
     } finally {
       setDeleteTarget(null);
     }
@@ -89,6 +168,22 @@ export default function AdminUsersPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
+      <div className="mb-6">
+        <Button variant="outline" onClick={() => navigate('/')}>
+          Back
+        </Button>
+      </div>
+
+      {message && (
+        <Alert
+          variant={message.type === 'error' ? 'destructive' : 'default'}
+          className="mb-6"
+        >
+          <AlertTitle>{message.title}</AlertTitle>
+          <AlertDescription>{message.description}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Add User Card */}
       <Card className="mb-6">
         <CardHeader>
@@ -124,6 +219,11 @@ export default function AdminUsersPage() {
               Admin
             </label>
           </div>
+          <div>
+            <Button onClick={addUser} disabled={loading}>
+              {loading ? 'Adding...' : 'Add User'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -133,7 +233,15 @@ export default function AdminUsersPage() {
           <CardTitle>Managed Users ({adminUsers.length})</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
-          {adminUsers.map(u => (
+          {fetchingUsers ? (
+            <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+              Loading users...
+            </div>
+          ) : adminUsers.length === 0 ? (
+            <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+              No managed users found.
+            </div>
+          ) : adminUsers.map(u => (
             <div
               key={u.id}
               className={`flex items-center justify-between p-3 rounded-lg border ${!u.active ? 'opacity-60' : ''}`}
