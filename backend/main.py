@@ -111,8 +111,19 @@ async def get_current_user(authorization: str = Header(default=None)):
             issuer=KEYCLOAK_ISSUER,
         )
         user_email = payload.get("email")
-        if not is_authorized(user_email):
-            raise HTTPException(status_code=403, detail=f"Access denied: {user_email} is not authorized")
+        if not user_email:
+            raise HTTPException(status_code=401, detail="Token missing email claim")
+        rec = get_user_record(user_email)
+        if rec is None:
+            raise HTTPException(
+                status_code=403,
+                detail="User not registered",
+            )
+        if rec["active"] != 1:
+            raise HTTPException(
+                status_code=403,
+                detail="Account deactivated",
+            )
         return {
             "sub": payload["sub"],
             "email": user_email,

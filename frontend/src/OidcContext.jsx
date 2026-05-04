@@ -8,6 +8,7 @@ export function OidcProvider({ children, config }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [userManager, setUserManager] = useState(null);
+  const [isUnauthorized, setIsUnauthorized] = useState(false);
 
   useEffect(() => {
     const store = new WebStorageStateStore({ store: window.localStorage });
@@ -25,10 +26,32 @@ export function OidcProvider({ children, config }) {
 
     const mgr = new UserManager(settings);
 
-    mgr.getUser().then((user) => {
-      if (user) {
-        setUser(user);
-        setIsAuthenticated(true);
+    // Check for existing OIDC session AND verify against backend DB
+    (async () => {
+      try {
+        const u = await mgr.getUser();
+        if (u) {
+          // Verify user is registered in local DB before granting access
+          try {
+            const res = await fetch('/api/me', {
+              headers: { 'Authorization': `Bearer ${u.access_token}` },
+            });
+            if (res.ok) {
+              setUser(u);
+              setIsAuthenticated(true);
+            } else {
+              // Not registered — clear session and mark as unauthorized
+              await mgr.removeUser();
+              setIsUnauthorized(true);
+            }
+          } catch {
+            // Backend unreachable — still allow login attempt
+            setUser(u);
+            setIsAuthenticated(true);
+          }
+        }
+      } catch {
+        // No existing session
       }
     }).finally(() => setIsLoading(false));
 
@@ -36,6 +59,7 @@ export function OidcProvider({ children, config }) {
   }, [config]);
 
   const login = useCallback(async () => {
+    setIsUnauthorized(false);
     if (userManager) await userManager.signinRedirect();
   }, [userManager]);
 
@@ -45,10 +69,10 @@ export function OidcProvider({ children, config }) {
     const signedInUser = await userManager.signinRedirectCallback();
     setUser(signedInUser);
     setIsAuthenticated(true);
-    window.location.href = '/';
   }, [userManager]);
 
   const logout = useCallback(async () => {
+    setIsUnauthorized(false);
     if (userManager) {
       await userManager.signoutRedirect({
         id_token_hint: user?.id_token,
@@ -57,8 +81,33 @@ export function OidcProvider({ children, config }) {
     }
   }, [userManager, user]);
 
+  // Verify that the OIDC-authenticated user is registered in the local DB.
+  // Returns true if /api/me responds 200, false on 403 (unregistered/inactive).
+  const verifyRegistered = useCallback(async () => {
+    if (!user?.access_token) return false;
+    try {
+      const res = await fetch('/api/me', {
+        headers: { 'Authorization': `Bearer ${user.access_token}` },
+      });
+      if (res.status === 403) return false;
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }, [user]);
+
+  // Clear local auth state without redirecting to Keycloak logout
+  const clearAuthState = useCallback(async () => {
+    if (userManager) {
+      await userManager.removeUser();
+    }
+    setUser(null);
+    setIsAuthenticated(false);
+    setIsUnauthorized(true);
+  }, [userManager]);
+
   return (
-    <AuthContext.Provider value={{ isLoading, isAuthenticated, user, login, logout, handleSigninCallback }}>
+    <AuthContext.Provider value={{ isLoading, isAuthenticated, isUnauthorized, user, login, logout, handleSigninCallback, verifyRegistered, clearAuthState }}>
       {children}
     </AuthContext.Provider>
   );
