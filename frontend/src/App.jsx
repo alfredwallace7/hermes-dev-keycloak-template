@@ -1,93 +1,38 @@
-import { useState, useEffect } from 'react';
+/**
+ * Application entry point — wraps providers and renders route definitions.
+ */
+
+import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { OidcProvider, useAuth } from './OidcContext';
+import { OidcProvider } from './OidcContext';
 import { ThemeProvider } from './ThemeContext';
 import Layout from './components/Layout';
 import RequireAuth from './components/RequireAuth';
-import HomePage from './pages/HomePage';
-import AdminUsersPage from './pages/AdminUsersPage';
-import CallbackPage from './pages/CallbackPage';
-import LoginPage from './pages/LoginPage';
-
-const KEYCLOAK_CONFIG = {
-  authority: 'https://keycloak.netcraft.fr/realms/hermes',
-  client_id: 'hermes-dev',
-  redirect_uri: window.location.origin + '/callback',
-  response_type: 'code',
-  scope: 'openid profile email',
-};
+import { ROUTES } from './routes';
+import { KEYCLOAK_CONFIG } from './utils/constants';
 
 function AppContent() {
-  const { isAuthenticated, user } = useAuth();
-
-  // Protected route wrapper — requires admin status
-  function RequireAdmin({ children }) {
-    const [isAdmin, setIsAdmin] = useState(false);
-    const [loading, setLoading] = useState(true);
-    
-    useEffect(() => {
-      async function checkAdmin() {
-        try {
-          const res = await fetch('/api/me', {
-            headers: { 'Authorization': `Bearer ${user?.access_token}` },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setIsAdmin(!!data.admin);
-          } else {
-            setIsAdmin(false);
-          }
-        } catch (e) {
-          console.error('Failed to check admin status:', e);
-          setIsAdmin(false);
-        } finally {
-          setLoading(false);
-        }
-      }
-      
-      if (isAuthenticated && user?.access_token) {
-        checkAdmin();
-      } else {
-        setLoading(false);
-      }
-    }, [isAuthenticated, user]);
-
-    if (loading) return <div className="flex items-center justify-center h-64">Loading...</div>;
-    
-    if (!isAdmin) {
-      return <Navigate to="/" replace />;
-    }
-    
-    return children;
-  }
-
   return (
     <BrowserRouter>
       <Layout>
-        <Routes>
-          {/* Callback route — processes OIDC response */}
-          <Route path="/callback" element={<CallbackPage />} />
-          
-          {/* Login trigger */}
-          <Route path="/login" element={<LoginPage />} />
-          
-          {/* Public routes */}
-          <Route path="/" element={
-            <RequireAuth>
-              <HomePage />
-            </RequireAuth>
-          } />
-          
-          {/* Admin-only routes */}
-          <Route path="/admin/users" element={
-            <RequireAdmin>
-              <AdminUsersPage />
-            </RequireAdmin>
-          } />
-          
-          {/* Catch-all redirect */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<div className="flex items-center justify-center h-64">Loading...</div>}>
+          <Routes>
+            {/* Callback route — processes OIDC response */}
+            <Route path="/callback" element={<ROUTES[0].element />} />
+
+            {/* Login trigger */}
+            <Route path="/login" element={<ROUTES[1].element />} />
+
+            {/* Public routes (require auth) */}
+            <Route path="/" element={ROUTES[2].element} />
+
+            {/* Admin-only routes */}
+            <Route path="/admin/users" element={ROUTES[3].element} />
+
+            {/* Catch-all redirect */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </Layout>
     </BrowserRouter>
   );
