@@ -8,8 +8,13 @@ export default function RequireAuth({ children }) {
     return <div className="flex items-center justify-center h-64">Chargement...</div>;
   }
 
-  // User was rejected by backend — redirect to login with error message
-  if (isUnauthorized || !isAuthenticated) {
+  // Unauthenticated user — redirect to login without error flag so they can actually log in
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // User was explicitly rejected by backend (not just unauthenticated)
+  if (isUnauthorized) {
     return <Navigate to="/login?error=unauthorized" replace />;
   }
 

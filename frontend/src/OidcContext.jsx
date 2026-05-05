@@ -27,32 +27,27 @@ export function OidcProvider({ children, config }) {
     const mgr = new UserManager(settings);
 
     // Check for existing OIDC session AND verify against backend DB
-    (async () => {
-      try {
-        const u = await mgr.getUser();
-        if (u) {
-          // Verify user is registered in local DB before granting access
-          try {
-            const res = await fetch('/api/me', {
-              headers: { 'Authorization': `Bearer ${u.access_token}` },
-            });
-            if (res.ok) {
-              setUser(u);
-              setIsAuthenticated(true);
-            } else {
-              // Not registered — clear session and mark as unauthorized
-              await mgr.removeUser();
-              setIsUnauthorized(true);
-            }
-          } catch {
-            // Backend unreachable — still allow login attempt
+    mgr.getUser().then(u => {
+      if (u) {
+        return fetch('/api/me', {
+          headers: { 'Authorization': `Bearer ${u.access_token}` },
+        }).then(res => {
+          if (res.ok) {
             setUser(u);
             setIsAuthenticated(true);
+          } else {
+            return mgr.removeUser().then(() => setIsUnauthorized(true));
           }
-        }
-      } catch {
-        // No existing session
+        }).catch(() => {
+          // Backend unreachable — still allow login attempt
+          setUser(u);
+          setIsAuthenticated(true);
+        });
       }
+      return Promise.resolve();
+    }).catch(() => {
+      // No existing session
+      return Promise.resolve();
     }).finally(() => setIsLoading(false));
 
     setUserManager(mgr);

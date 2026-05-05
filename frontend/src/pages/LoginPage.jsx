@@ -10,19 +10,22 @@ export default function LoginPage() {
   const errorType = searchParams.get('error');
 
   useEffect(() => {
-    if (isLoading || isAuthenticated || isUnauthorized || !!errorType || startedLogin.current) return;
+    // Only skip auto-login if: still loading, already authenticated, or explicit error param present
+    // Note: isUnauthorized alone doesn't block login — it may be stale from a previous session.
+    // We only show "Accès refusé" when there's an explicit ?error=unauthorized query param.
+    if (isLoading || isAuthenticated || !!errorType || startedLogin.current) return;
 
     startedLogin.current = true;
     login();
-  }, [isLoading, isAuthenticated, isUnauthorized, errorType, login]);
+  }, [isLoading, isAuthenticated, errorType, login]);
 
   // If user successfully authenticated and authorized, go home
   if (isAuthenticated && !isUnauthorized && !errorType) {
     return <Navigate to="/" replace />;
   }
 
-  // Show rejection message for users not registered in the local DB
-  if (isUnauthorized || errorType === 'unauthorized') {
+  // Show rejection message only for explicit error param (not stale isUnauthorized flag)
+  if (errorType === 'unauthorized') {
     return (
       <div className="flex items-center justify-center min-h-[60vh] px-4">
         <Alert variant="destructive" className="max-w-md w-full">
@@ -34,6 +37,9 @@ export default function LoginPage() {
       </div>
     );
   }
+
+  // isUnauthorized without error param means user was redirected from RequireAuth (not yet logged in)
+  // — let them attempt login instead of showing rejection
 
   if (errorType === 'failed') {
     return (
