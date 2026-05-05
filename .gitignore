@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.db
+
+# Node
+node_modules/
+frontend/.vite/
+frontend/dist/
+dist/
+
+# Environment
+.env
+.env.local
+.venv
+venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
